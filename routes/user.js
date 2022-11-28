@@ -1,5 +1,6 @@
 const router = require('express').Router()
 const bcrypt = require('bcrypt')
+const User = require('../models/User')
 const userModel = require('../models/User')
 const { route } = require('./auth')
 
@@ -9,14 +10,14 @@ router.put("/:id", async (req, res) => {
         if (req.body.password) {
             const salt = await bcrypt.genSalt(10)
             const hashedPass = await bcrypt.hash(req.body.password, salt)
-            req.body.password = hashedPass 
+            req.body.password = hashedPass
         }
-        try{
-            const user = await userModel.findByIdAndUpdate(req.body.userId,{
+        try {
+            const user = await userModel.findByIdAndUpdate(req.body.userId, {
                 $set: req.body
             })
             res.status(200).json("Account has been updated successfully")
-        } catch(err){
+        } catch (err) {
             res.status(500).json(err)
         }
     } else {
@@ -26,62 +27,61 @@ router.put("/:id", async (req, res) => {
 
 //delete user
 router.delete("/:id", async (req, res) => {
-    if(req.body.userId === req.params.id || req.body.isAdmin){
-        try{
+    if (req.body.userId === req.params.id || req.body.isAdmin) {
+        try {
             const user = await userModel.findByIdAndDelete(req.body.userId)
             !user && res.status(404).json("user not found")
             res.status(200).json("Account has been deleted successfully")
-        }catch(err){
+        } catch (err) {
             res.status(500).json(err)
         }
-    }else{
+    } else {
         res.status(403).json("You can delete only your account")
     }
 })
 
 
 //get user
-router.get("/:id", async (req, res) => {
-    if(req.body.userId === req.params.id || req.body.isAdmin){
-        try{
-            const user = await userModel.findById(req.body.userId)
-            !user && res.status.find(404).json("user not found")
-            const {password, updatedAt, ...others} = user._doc
-            res.status(200).json(others)
-        }catch(err){
-            console.log(err)
-            res.status(500).json(err)
-        }
-    }else{
-        res.status(403).json("You can get only your details")
+router.get("/", async (req, res) => {
+    const userId = req.query.id
+    const userName = req.query.userName
+    try {
+        const user = userId ? await userModel.findById(userId) 
+                            : await userModel.findOne({userName: userName})
+        !user && res.status.find(404).json("user not found")
+        const { password, updatedAt, ...others } = user._doc
+        res.status(200).json(others)
+    } catch (err) {
+        console.log(err)
+        res.status(500).json(err)
     }
 })
 
 
 //follow user
 router.put("/:id/follow", async (req, res) => {
-    if(req.body.userId !== req.params.id){
-        try{
+    if (req.body.userId !== req.params.id) {
+        try {
             const userToFollow = await userModel.findById(req.params.id)
             const currUser = await userModel.findById(req.body.userId)
 
             !userToFollow && res.status(404).json("user not found")
-            if(!userToFollow.followers.includes(req.body.userId) 
-                && !currUser.following.includes(req.params.id)){
-                const followingUser = await userModel.findByIdAndUpdate(req.params.id,{
-                    $push: {followers: req.body.userId}
+            if (!userToFollow.followers.includes(req.body.userId)
+                && !currUser.following.includes(req.params.id)) {
+                const followingUser = await userModel.findByIdAndUpdate(req.params.id, {
+                    $push: { followers: req.body.userId }
                 })
-                const followerUser = await userModel.findByIdAndUpdate(req.body.userId,{
-                    $push: {following: req.params.id}
+                const followerUser = await userModel.findByIdAndUpdate(req.body.userId, {
+                    $push: { following: req.params.id }
                 })
                 res.status(200).json("User has been followed")
-            } else{
+            } else {
                 res.status(403).json("User is alreay followed")
             }
-        }catch(err){
+        } catch (err) {
             res.status(500).json(err)
         }
-    }else{
+    } else {
         res.status(403).json("you cant follow yourself")
     }
 })
@@ -89,28 +89,49 @@ router.put("/:id/follow", async (req, res) => {
 
 //unfollow user
 router.put("/:id/unfollow", async (req, res) => {
-    if(req.body.userId !== req.params.id){  
-        try{
+    if (req.body.userId !== req.params.id) {
+        try {
             const userToUnfollow = await userModel.findById(req.params.id)
             const currUser = await userModel.findById(req.body.userId)
-            
-            if(currUser.following.includes(req.params.id)){
-                const unfollowed = await userModel.findByIdAndUpdate(req.body.userId,{
-                    $pull: {following: req.params.id}
+
+            if (currUser.following.includes(req.params.id)) {
+                const unfollowed = await userModel.findByIdAndUpdate(req.body.userId, {
+                    $pull: { following: req.params.id }
                 })
-                const unfollower = await userModel.findByIdAndUpdate(req.params.id,{
-                    $pull: {followers: req.body.userId}
+                const unfollower = await userModel.findByIdAndUpdate(req.params.id, {
+                    $pull: { followers: req.body.userId }
                 })
                 res.status(200).json("User unfollowed")
-            }else{
+            } else {
                 res.status(403).json("You are not following this user")
             }
-        }catch(err){
+        } catch (err) {
             console.log(err)
             res.status(500).json(err)
         }
-    }else{
+    } else {
         res.status(403).json("You can't perform unfollow on your own id")
+    }
+})
+
+
+//get followings or friends
+router.get("/:id/friends", async (req, res) => {
+    try{
+        const user = await User.findById(req.params.id)
+        console.log(user.following)
+        const friends = await Promise.all(
+            user.following.map(friend => User.findById(friend))
+        )
+        console.log(friends)
+        const friendList = friends.map(friend => {
+            const {userName, profilePicture, _id} = friend
+            return {userName, profilePicture, _id}
+        })
+        res.status(200).json(friendList)
+    }catch(err){
+        console.log(err)
+        res.status(500).json(err)
     }
 })
 

@@ -5,9 +5,9 @@ const User = require('../models/User')
 
 //create post
 router.post("/", async (req, res) => {
-    const newPost = new Post(req.body)
     try{
-        const post = newPost.save()
+        const newPost = new Post(req.body)
+        const post = await newPost.save()
         res.status(200).json(post)
     }catch(err){
         res.status(500).json(err)
@@ -81,17 +81,28 @@ router.get("/:id", async (req, res) => {
 })
 
 
-//get timeline posts
-router.get("/timeline/all", async (req, res) => {
+//get feed posts
+router.get("/feed/:id", async (req, res) => {
     try{
-        const currUser = await User.findById(req.body.userId)
-        const timelinePosts = await Post.find({userId: req.body.userId})
+        const currUser = await User.findById(req.params.id)
+        const feedPosts = await Post.find({userId: req.params.id})
         const followingPosts = await Promise.all(
             currUser.following.map(item => Post.find({userId: item}))
         )
-        res.status(200).json([...timelinePosts, ...followingPosts])
+        res.status(200).json(feedPosts.concat(...followingPosts))
     }catch(err){
-        console.log(err)
+        res.status(500).json(err)
+    }
+})
+
+
+//get timeline posts
+router.get("/timeline/:userName", async (req, res) => {
+    try{
+        const user = await User.findOne({userName: req.params.userName})
+        const timelinePosts = await Post.find({userId: user._id})
+        res.status(200).json(timelinePosts)
+    }catch(err){
         res.status(500).json(err)
     }
 })
