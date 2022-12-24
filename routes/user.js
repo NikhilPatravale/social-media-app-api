@@ -119,11 +119,9 @@ router.put("/:id/unfollow", async (req, res) => {
 router.get("/:id/friends", async (req, res) => {
     try{
         const user = await User.findById(req.params.id)
-        console.log(user.following)
         const friends = await Promise.all(
             user.following.map(friend => User.findById(friend))
         )
-        console.log(friends)
         const friendList = friends.map(friend => {
             const {userName, profilePicture, _id} = friend
             return {userName, profilePicture, _id}
