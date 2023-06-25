@@ -1,8 +1,6 @@
 const router = require('express').Router()
 const bcrypt = require('bcrypt')
-const User = require('../models/User')
 const userModel = require('../models/User')
-const { route } = require('./auth')
 
 //update user
 router.put("/:id", async (req, res) => {
@@ -118,9 +116,9 @@ router.put("/:id/unfollow", async (req, res) => {
 //get followings or friends
 router.get("/:id/friends", async (req, res) => {
     try{
-        const user = await User.findById(req.params.id)
+        const user = await userModel.findById(req.params.id)
         const friends = await Promise.all(
-            user.following.map(friend => User.findById(friend))
+            user.following.map(friend => userModel.findById(friend))
         )
         const friendList = friends.map(friend => {
             const {userName, profilePicture, _id} = friend
